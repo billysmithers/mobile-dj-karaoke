@@ -1,26 +1,16 @@
 import { CDGPlayer, CDGControls } from 'cdgplayer';
 
-function setState(state) {
-  switch (state) {
-    case 'loading':
-      document.querySelector('#file-select-container').style.visibility =
-        'visible';
-      document.querySelector('.cdg-player').style.visibility = 'hidden';
-      break;
-    case 'cdg':
-      document.querySelector('#file-select-container').style.visibility =
-        'hidden';
-      document.querySelector('.cdg-player').style.visibility = 'visible';
-      break;
-    default:
-      alert('unknown state');
-  }
-}
+let playlistElem;
+const playlistBuffer = [];
 
-function loadPlayer(filename) {
+function loadPlayer() {
   const player = new CDGPlayer('#cdg_wrapper');
   new CDGControls('#cdg_controls', player, {
     position: 'top',
+  });
+  let trackLength;
+  player.props.on('trackLength', (val) => {
+    trackLength = val;
   });
   player.props.on('status', (val) => {
     console.log('Status: ', val);
@@ -28,20 +18,46 @@ function loadPlayer(filename) {
       player.start();
     }
   });
-  player.load(filename);
+  player.props.on('timePlayed', (val) => {
+    if (val === trackLength) {
+      playlistBuffer.shift();
+      playlistElem.firstChild.remove();
+      player.load(playlistBuffer[0]);
+    }
+  });
+  player.load(playlistBuffer[0]);
 }
 
+function addFiles(files) {
+  return Promise.all([].map.call(files, function (file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        resolve({ result: reader.result, file: file });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  })).then(function (results) {
+    results.forEach(function (result) {
+      const displayName = result.file.name.replaceAll('_', ' ').replace('.zip', '');
+
+      const item = document.createElement('li');
+      item.appendChild(document.createTextNode(displayName));
+      playlistElem.appendChild(item);
+
+      playlistBuffer.push(result.result);
+    });
+
+    loadPlayer();
+  });
+}
+
+// @TODO - reorder playlist use drag and drop and slice playlistBuffer based on data attribute index - same as reward ordering
+
 (function () {
-  const fileReader = new FileReader();
-  setState('loading');
-  fileReader.onload = (fileEvent) => loadPlayer(fileEvent.target.result);
+  playlistElem = document.querySelector('#playlist');
+
   document.querySelector('#file-select').addEventListener('change', (event) => {
-    const files = event.target.files;
-    try {
-      fileReader.readAsArrayBuffer(files[0]);
-      setState('cdg');
-    } catch (error) {
-      alert(error);
-    }
+    addFiles(event.target.files);
   });
 })();
