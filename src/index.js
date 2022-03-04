@@ -2,12 +2,11 @@ import { CDGPlayer, CDGControls } from 'cdgplayer';
 
 let playlistElem;
 const playlistBuffer = [];
+let player;
 
 function loadPlayer() {
-  const player = new CDGPlayer('#cdg_wrapper');
-  new CDGControls('#cdg_controls', player, {
-    position: 'top',
-  });
+  player = new CDGPlayer('#cdg_wrapper');
+  new CDGControls('#cdg_controls', player);
   let trackLength;
   player.props.on('trackLength', (val) => {
     trackLength = val;
@@ -21,10 +20,19 @@ function loadPlayer() {
   player.props.on('timePlayed', (val) => {
     if (val === trackLength) {
       playlistBuffer.shift();
-      playlistElem.firstChild.remove();
-      player.load(playlistBuffer[0]);
+
+      if (playlistBuffer.length > 0) {
+        player.load(playlistBuffer[0]);
+      }
+
+      if (playlistElem.children.length > 0) {
+        playlistElem.firstChild.remove();
+      }
     }
   });
+}
+
+function loadMusic() {
   player.load(playlistBuffer[0]);
 }
 
@@ -48,7 +56,7 @@ function addFiles(files) {
       playlistBuffer.push(result.result);
     });
 
-    loadPlayer();
+    loadMusic();
   });
 }
 
@@ -60,4 +68,6 @@ function addFiles(files) {
   document.querySelector('#file-select').addEventListener('change', (event) => {
     addFiles(event.target.files);
   });
+
+  loadPlayer();
 })();
